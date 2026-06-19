@@ -42,13 +42,25 @@ non_teaching = st.number_input("Non-Teaching", min_value=0)
 teaching_related = st.number_input("Teaching Related", min_value=0)
 
 if st.button("Submit MERF"):
-    os.makedirs("uploads", exist_ok=True)
+
+    # ✅ Your OneDrive folder path here
+    upload_path = "/Users/macbookair/Library/CloudStorage/OneDrive-DEPARTMENTOFEDUCATION/MERF\ Uploads"
+    os.makedirs(upload_path, exist_ok=True)
 
     memo_path = ""
     matrix_path = ""
 
+    # Save Signed Memorandum
     if memo_file:
-        memo_path = f"uploads/{memo_file.name}"
+        memo_path = os.path.join(upload_path, memo_file.name)
+        with open(memo_path, "wb") as f:
+            f.write(memo_file.getbuffer())
+
+    # Save Activity Matrix
+    if matrix_file:
+        matrix_path = os.path.join(upload_path, matrix_file.name)
+        with open(matrix_path, "wb") as f:
+            f.write(matrix_file.getbuffer())
         with open(memo_path, "wb") as f:
             f.write(memo_file.getbuffer())
 
