@@ -11,8 +11,6 @@ import smtplib
 from email.mime.text import MIMEText
 import os
 
-# ✅ Fix for OAuth redirect
-os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 # 🔹 2. GOOGLE SHEETS
 def save_to_google_sheet(data):
@@ -58,21 +56,6 @@ Matrix: {data['Matrix Link']}
         server.login(sender, password)
         server.send_message(msg)
 
-# 🔹 4. OAUTH FLOW
-def create_flow():
-    return Flow.from_client_config(
-        {
-            "web": {
-                "client_id": st.secrets["GOOGLE_CLIENT_ID"],
-                "client_secret": st.secrets["GOOGLE_CLIENT_SECRET"],
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [st.secrets["REDIRECT_URI"]],
-            }
-        },
-        scopes=["https://www.googleapis.com/auth/drive"],
-        redirect_uri=st.secrets["REDIRECT_URI"],
-    )
 
 # 🔹 5. UPLOAD FUNCTION
 def upload_to_drive(file, filename):
