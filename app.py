@@ -2,7 +2,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-
+import gspread
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
@@ -26,7 +26,7 @@ def upload_to_drive(file, filename):
 
     file_metadata = {
         'name': filename,
-        'parents': ['1gHafPfK31w9nQ3siyVW4BpbsCs7VVS_X?fbclid=IwY2xjawRZCWFleHRuA2FlbQMxMDAAc3J0YwZhcHBfaWQBMAABHo7zyITbqfVjzwEnjGp9Z3RTyk8I52rKMWaXp_i7SxcIxDT_FG0DuJSA67M8_aem_HCMy1GEuAYyziXthnGsSCg']
+        'parents': ['1gHafPfK31w9nQ3siyVW4BpbsCs7VVS_X']
     }
 
     file_stream = io.BytesIO(file.getbuffer())
