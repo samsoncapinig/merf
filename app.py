@@ -18,7 +18,17 @@ def get_drive_service():
 
     service = build('drive', 'v3', credentials=creds)
     return service
-    
+def save_to_google_sheet(data):
+    SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+
+    creds = service_account.Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"], scopes=SCOPES)
+
+    client = gspread.authorize(creds)
+
+    sheet = client.open("MERF Responses").sheet1
+
+    sheet.append_row(data)    
 # 🔹 3. UPLOAD FUNCTION (below it ✅)
 
 def upload_to_drive(file, filename):
@@ -81,10 +91,31 @@ teaching_related = st.number_input("Teaching Related", min_value=0)
 
 if st.button("Submit MERF"):
 
+    memo_id = ""
+    matrix_id = ""
+
     if memo_file:
-        upload_to_drive(memo_file, memo_file.name)
+        memo_id = upload_to_drive(memo_file, memo_file.name)
 
     if matrix_file:
-        upload_to_drive(matrix_file, matrix_file.name)
+        matrix_id = upload_to_drive(matrix_file, matrix_file.name)
 
-    st.success("MERF submitted and uploaded to Google Drive ✅")
+    # Prepare data row
+    row = [
+        str(datetime.now()),
+        program_owner,
+        training_title,
+        venue,
+        str(dates),
+        qame_other,
+        teaching,
+        non_teaching,
+        teaching_related,
+        memo_id,
+        matrix_id
+    ]
+
+    # Save to Google Sheet
+    save_to_google_sheet(row)
+
+    st.success("✅ MERF submitted, uploaded, and recorded in Google Sheet!")
