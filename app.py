@@ -13,8 +13,8 @@ import io
 def get_drive_service():
     SCOPES = ['https://www.googleapis.com/auth/drive']
 
-    creds = service_account.Credentials.from_service_account_file(
-        'service_account.json', scopes=SCOPES)
+    creds = service_account.Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"], scopes=SCOPES)
 
     service = build('drive', 'v3', credentials=creds)
     return service
