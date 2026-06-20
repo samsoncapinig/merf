@@ -29,7 +29,7 @@ def save_to_google_sheet(data):
         st.secrets["gcp_service_account"], scopes=SCOPES)
 
     client = gspread.authorize(creds)
-    sheet = client.open("MERF Responses").sheet1
+    sheet = client.open("1EZGjn7SX1MhFls_RV4LRt0lhHa1tvOdvK7w2LqUUVLE").sheet1
     sheet.append_row(data)
 
 
