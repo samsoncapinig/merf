@@ -123,13 +123,18 @@ auth_url, _ = flow.authorization_url(prompt="consent")
 
 st.link_button("Login", auth_url)
 
-params = st.experimental_get_query_params()
+params = st.query_params
 
 if "code" in params:
-    flow.fetch_token(code=params["code"][0])
+    code = params["code"]
+    flow.fetch_token(code=code)
+
     st.session_state["credentials"] = flow.credentials
     st.success("✅ Logged in")
-    st.experimental_set_query_params()
+
+    # ✅ Clear params (new way)
+    st.query_params.clear()
+
 
 # 🔹 8. SUBMIT
 if st.button("Submit"):
