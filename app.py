@@ -34,25 +34,31 @@ def save_to_google_sheet(data):
 
 
 def upload_to_drive(file, filename):
-    service = get_drive_service()
+    try:
+        service = get_drive_service()
 
-    file_metadata = {
-        'name': filename,
-        'parents': ['1gHafPfK31w9nQ3siyVW4BpbsCs7VVS_X']
-    }
+        file_metadata = {
+            'name': filename,
+            'parents': ['1gHafPfK31w9nQ3siyVW4BpbsCs7VVS_X']
+        }
 
-    file_stream = io.BytesIO(file.getbuffer())
+        file_stream = io.BytesIO(file.getbuffer())
 
-    media = MediaIoBaseUpload(file_stream, mimetype=file.type)
+        media = MediaIoBaseUpload(file_stream, mimetype=file.type)
 
-    uploaded = service.files().create(
-        body=file_metadata,
-        media_body=media,
-        fields='id'
-    ).execute()
+        uploaded = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields='id'
+        ).execute()
 
-    file_id = uploaded.get('id')
-    return f"https://drive.google.com/file/d/{file_id}/view"
+        file_id = uploaded.get('id')
+
+        return f"https://drive.google.com/file/d/{file_id}/view"
+
+    except Exception as e:
+        st.error(f"Upload failed: {e}")
+        return ""
 
 
 def send_email_notification(data):
