@@ -10,43 +10,6 @@ import io
 import smtplib
 from email.mime.text import MIMEText
 
-def send_email_notification(data):
-    sender = st.secrets["EMAIL_USER"]
-    password = st.secrets["EMAIL_PASS"]
-
-    # ✅ multiple recipients
-    recipients = st.secrets["EMAIL_TO"].split(",")
-
-    subject = "New MERF Submission"
-
-    body = f"""
-New MERF Submission Received:
-
-Program Owner: {data['Program Owner']}
-Training Title: {data['Training Title']}
-Venue: {data['Venue']}
-Dates: {data['Dates']}
-QAME: {data['QAME']}
-
-Participants:
-Teaching: {data['Teaching']}
-Non-Teaching: {data['Non-Teaching']}
-Teaching Related: {data['Teaching Related']}
-
-Files:
-Signed Memorandum: {data['Memo Link']}
-Activity Matrix: {data['Matrix Link']}
-"""
-
-    msg = MIMEText(body)
-    msg['Subject'] = subject
-    msg['From'] = sender
-    msg['To'] = ", ".join(recipients)
-
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-        server.login(sender, password)
-        server.send_message(msg)
-
 # 🔹 2. GOOGLE DRIVE FUNCTION (put it HERE ✅)
 
 def get_drive_service():
@@ -94,7 +57,44 @@ def upload_to_drive(file, filename):
     file_link = f"https://drive.google.com/file/d/{file_id}/view"
 
     return file_link
-    
+
+def send_email_notification(data):
+    sender = st.secrets["EMAIL_USER"]
+    password = st.secrets["EMAIL_PASS"]
+
+    # ✅ multiple recipients
+    recipients = st.secrets["EMAIL_TO"].split(",")
+
+    subject = "New MERF Submission"
+
+    body = f"""
+New MERF Submission Received:
+
+Program Owner: {data['Program Owner']}
+Training Title: {data['Training Title']}
+Venue: {data['Venue']}
+Dates: {data['Dates']}
+QAME: {data['QAME']}
+
+Participants:
+Teaching: {data['Teaching']}
+Non-Teaching: {data['Non-Teaching']}
+Teaching Related: {data['Teaching Related']}
+
+Files:
+Signed Memorandum: {data['Memo Link']}
+Activity Matrix: {data['Matrix Link']}
+"""
+
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = sender
+    msg['To'] = ", ".join(recipients)
+
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+        server.login(sender, password)
+        server.send_message(msg)
+
 # 🔹 4. SUBMIT BUTTON (below it ✅)
 if st.button("Submit MERF"):
 
