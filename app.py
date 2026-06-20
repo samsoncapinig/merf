@@ -33,35 +33,6 @@ def save_to_google_sheet(data):
     sheet.append_row(data)
 
 
-def upload_to_drive(file, filename):
-    try:
-        service = get_drive_service()
-
-        file_metadata = {
-            'name': filename,
-            'parents': ['11mUXkWqeGRWShnL8vbVqftx9C9rcodl6']
-        }
-
-        file_stream = io.BytesIO(file.getbuffer())
-
-        media = MediaIoBaseUpload(file_stream, mimetype=file.type)
-
-        uploaded = service.files().create(
-            body=file_metadata,
-            media_body=media,
-            fields='id',
-            supportsAllDrives=True  # ✅ FIX
-        ).execute()
-
-        file_id = uploaded.get('id')
-
-        return f"https://drive.google.com/file/d/{file_id}/view"
-
-    except Exception as e:
-        st.error(f"Upload failed: {e}")
-        return ""
-
-
 def send_email_notification(data):
     sender = st.secrets["EMAIL_USER"]
     password = st.secrets["EMAIL_PASS"]
@@ -139,15 +110,8 @@ teaching_related = st.number_input("Teaching Related", min_value=0)
 
 if st.button("Submit MERF"):
 
-    memo_link = ""
-    matrix_link = ""
-
-    # ✅ Safe checks
-    if memo_file is not None:
-        memo_link = upload_to_drive(memo_file, memo_file.name)
-
-    if matrix_file is not None:
-        matrix_link = upload_to_drive(matrix_file, matrix_file.name)
+    memo_link = "Not uploaded"
+    matrix_link = "Not uploaded"
 
     data_dict = {
         "Program Owner": program_owner,
@@ -162,7 +126,7 @@ if st.button("Submit MERF"):
         "Matrix Link": matrix_link
     }
 
-    # ✅ Save to sheet
+    # ✅ Save to Google Sheet
     save_to_google_sheet([
         str(datetime.now()),
         program_owner,
@@ -177,7 +141,7 @@ if st.button("Submit MERF"):
         matrix_link
     ])
 
-    # ✅ Send email
+    # ✅ Send Email
     send_email_notification(data_dict)
 
     st.success("✅ MERF submitted successfully!")
