@@ -56,17 +56,19 @@ def upload_to_drive(file, filename):
     creds = st.session_state.get("credentials")
 
     if not creds:
-        st.error("Please login first.")
+        st.error("❌ Please login first")
         return ""
 
     service = build('drive', 'v3', credentials=creds)
 
     file_stream = io.BytesIO(file.getbuffer())
+
     media = MediaIoBaseUpload(file_stream, mimetype=file.type)
 
     file_metadata = {
-        'name': filename,
-        'parents': ['11mUXkWqeGRWShnL8vbVqftx9C9rcodl6']
+        'name': filename
+        # optional folder:
+        # 'parents': ['YOUR_FOLDER_ID']
     }
 
     uploaded = service.files().create(
@@ -76,6 +78,7 @@ def upload_to_drive(file, filename):
     ).execute()
 
     file_id = uploaded.get('id')
+
     return f"https://drive.google.com/file/d/{file_id}/view"
 
 def send_email_notification(data):
@@ -151,6 +154,23 @@ teaching = st.number_input("Teaching", min_value=0)
 non_teaching = st.number_input("Non-Teaching", min_value=0)
 teaching_related = st.number_input("Teaching Related", min_value=0)
 
+def create_flow():
+    return Flow.from_client_config(
+        {
+            "web": {
+                "client_id": st.secrets["GOOGLE_CLIENT_ID"],
+                "client_secret": st.secrets["GOOGLE_CLIENT_SECRET"],
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": [st.secrets["REDIRECT_URI"]],
+            }
+        },
+        scopes=[
+            "https://www.googleapis.com/auth/drive"
+        ],
+        redirect_uri=st.secrets["REDIRECT_URI"],
+    )
+
 # 🔹 4. LOG IN BUTTON
 flow = create_flow()
 
@@ -172,30 +192,49 @@ if "code" in query_params:
     # ✅ Clear URL params (prevents repeated login)
     st.experimental_set_query_params()
 
+st.subheader("🔐 Google Login Required for File Upload")
+
+flow = create_flow()
+auth_url, _ = flow.authorization_url(prompt="consent")
+
+st.link_button("Login with Google", auth_url)
+
+query_params = st.experimental_get_query_params()
+
+if "code" in query_params:
+    code = query_params["code"][0]
+    flow.fetch_token(code=code)
+
+    st.session_state["credentials"] = flow.credentials
+    st.success("✅ Logged in successfully!")
+
+    st.experimental_set_query_params()
+
+
 # 🔹 4. SUBMIT BUTTON (NOW CORRECT POSITION)
 
 if st.button("Submit MERF"):
 
-    # ✅ Check login first
     if "credentials" not in st.session_state:
-        st.error("❌ Please login with Google first!")
+        st.error("❌ Please login with Google first")
         st.stop()
 
     memo_link = ""
     matrix_link = ""
 
-    # ✅ Upload files ONLY if available
     if memo_file is not None:
         memo_link = upload_to_drive(memo_file, memo_file.name)
 
     if matrix_file is not None:
         matrix_link = upload_to_drive(matrix_file, matrix_file.name)
 
+    formatted_dates = ", ".join([d.strftime("%Y-%m-%d") for d in dates]) if isinstance(dates, list) else str(dates)
+
     data_dict = {
         "Program Owner": program_owner,
         "Training Title": training_title,
         "Venue": venue,
-        "Dates": str(dates),
+        "Dates": formatted_dates,
         "QAME": qame_other,
         "Teaching": teaching,
         "Non-Teaching": non_teaching,
@@ -209,7 +248,7 @@ if st.button("Submit MERF"):
         program_owner,
         training_title,
         venue,
-        str(dates),
+        formatted_dates,
         qame_other,
         teaching,
         non_teaching,
@@ -220,5 +259,4 @@ if st.button("Submit MERF"):
 
     send_email_notification(data_dict)
 
-    st.success("✅ MERF submitted successfully!")
-
+    st.success("✅ MERF submitted and files uploaded!")
