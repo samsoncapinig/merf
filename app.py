@@ -1,18 +1,12 @@
-# 🔹 1. IMPORTS
+# 🔹 IMPORTS
 import streamlit as st
 from datetime import datetime
 import gspread
 from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-from google_auth_oauthlib.flow import Flow
-import io
 import smtplib
 from email.mime.text import MIMEText
-import os
 
-
-# 🔹 2. GOOGLE SHEETS
+# 🔹 GOOGLE SHEETS
 def save_to_google_sheet(data):
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
@@ -23,13 +17,13 @@ def save_to_google_sheet(data):
     sheet = client.open_by_key("1EZGjn7SX1MhFls_RV4LRt0lhHa1tvOdvK7w2LqUUVLE").sheet1
     sheet.append_row(data)
 
-# 🔹 3. EMAIL FUNCTION
+# 🔹 EMAIL FUNCTION
 def send_email_notification(data):
     sender = st.secrets["EMAIL_USER"]
     password = st.secrets["EMAIL_PASS"]
     recipients = st.secrets["EMAIL_TO"].split(",")
 
-    msg = MIMEText(f"""
+    body = f"""
 New MERF Submission:
 
 Program Owner: {data['Program Owner']}
@@ -44,10 +38,11 @@ Non-Teaching: {data['Non-Teaching']}
 Teaching Related: {data['Teaching Related']}
 
 Files:
-Memo: {data['Memo Link']}
-Matrix: {data['Matrix Link']}
-""")
+Memo: {data['Memo File']}
+Matrix: {data['Matrix File']}
+"""
 
+    msg = MIMEText(body)
     msg['Subject'] = "MERF Submission"
     msg['From'] = sender
     msg['To'] = ", ".join(recipients)
@@ -56,100 +51,84 @@ Matrix: {data['Matrix Link']}
         server.login(sender, password)
         server.send_message(msg)
 
-
-# 🔹 5. UPLOAD FUNCTION
-def upload_to_drive(file, filename):
-    creds = st.session_state.get("credentials")
-
-    if not creds:
-        st.error("❌ Login first")
-        return ""
-
-    service = build('drive', 'v3', credentials=creds)
-
-    file_stream = io.BytesIO(file.getbuffer())
-
-    media = MediaIoBaseUpload(file_stream, mimetype=file.type)
-
-    uploaded = service.files().create(
-        body={"name": filename},
-        media_body=media,
-        fields='id'
-    ).execute()
-
-    file_id = uploaded.get('id')
-
-    return f"https://drive.google.com/file/d/{file_id}/view"
-
-# 🔹 6. UI
-st.title("MERF Form")
+# 🔹 UI FORM
+st.title("MERF - Monitoring and Evaluation Request Form")
 
 program_owner = st.text_input("Program Owner")
 training_title = st.text_input("Training Title")
 venue = st.text_input("Venue")
-dates = st.date_input("Dates", [])
+dates = st.date_input("Inclusive Dates", [])
 
-qame = st.text_input("QAME")
+qame_list = [
+    "Rose Ann B. Oliva",
+    "John Vergel B. Catalina",
+    "Amrone Abegaile Mae B. Borromeo",
+    "Zaida C. Mendoza",
+    "Glady Judd D. Perez",
+    "Genelyn Cristobal",
+    "John Berben A. Alcala",
+    "Mary Ann C. Andales",
+    "Arjie A. Señano",
+    "Vergil Angelo B. Catalina",
+    "Others"
+]
 
-memo_file = st.file_uploader("Signed Memorandum")
-matrix_file = st.file_uploader("Activity Matrix")
+qame_selected = st.selectbox("Internal QAME Associate Assigned", qame_list)
 
-teaching = st.number_input("Teaching", 0)
-non_teaching = st.number_input("Non-Teaching", 0)
-related = st.number_input("Teaching Related", 0)
+if qame_selected == "Others":
+    qame_other = st.text_input("Specify Name")
+else:
+    qame_other = qame_selected
 
-# 🔹 7. LOGIN
-st.subheader("🔐 Login with Google")
+memo_file = st.file_uploader("Upload Signed Memorandum", type=["pdf", "docx"])
+matrix_file = st.file_uploader("Upload Activity Matrix", type=["pdf", "docx", "xlsx"])
 
-flow = create_flow()
-auth_url, _ = flow.authorization_url(prompt="consent")
+st.subheader("Number of Participants")
+teaching = st.number_input("Teaching", min_value=0)
+non_teaching = st.number_input("Non-Teaching", min_value=0)
+teaching_related = st.number_input("Teaching Related", min_value=0)
 
-st.link_button("Login", auth_url)
+# 🔹 SUBMIT
+if st.button("Submit MERF"):
 
-params = st.query_params
-
-if "code" in params:
-    code = params["code"]
-    flow.fetch_token(code=code)
-
-    st.session_state["credentials"] = flow.credentials
-    st.success("✅ Logged in")
-
-    # ✅ Clear params (new way)
-    st.query_params.clear()
-
-
-# 🔹 8. SUBMIT
-if st.button("Submit"):
-
-    if "credentials" not in st.session_state:
-        st.error("Login first")
+    if not program_owner or not training_title:
+        st.error("❌ Please fill required fields")
         st.stop()
 
-    memo_link = upload_to_drive(memo_file, memo_file.name) if memo_file else ""
-    matrix_link = upload_to_drive(matrix_file, matrix_file.name) if matrix_file else ""
+    memo_name = memo_file.name if memo_file else "No file"
+    matrix_name = matrix_file.name if matrix_file else "No file"
 
-    date_str = ", ".join([d.strftime("%Y-%m-%d") for d in dates])
+    formatted_dates = ", ".join([d.strftime("%Y-%m-%d") for d in dates]) if isinstance(dates, list) else str(dates)
 
-    data = {
+    data_dict = {
         "Program Owner": program_owner,
         "Training Title": training_title,
         "Venue": venue,
-        "Dates": date_str,
-        "QAME": qame,
+        "Dates": formatted_dates,
+        "QAME": qame_other,
         "Teaching": teaching,
         "Non-Teaching": non_teaching,
-        "Teaching Related": related,
-        "Memo Link": memo_link,
-        "Matrix Link": matrix_link
+        "Teaching Related": teaching_related,
+        "Memo File": memo_name,
+        "Matrix File": matrix_name
     }
 
+    # ✅ Save to sheet
     save_to_google_sheet([
-        str(datetime.now()), program_owner, training_title, venue,
-        date_str, qame, teaching, non_teaching, related,
-        memo_link, matrix_link
+        str(datetime.now()),
+        program_owner,
+        training_title,
+        venue,
+        formatted_dates,
+        qame_other,
+        teaching,
+        non_teaching,
+        teaching_related,
+        memo_name,
+        matrix_name
     ])
 
-    send_email_notification(data)
+    # ✅ Send email
+    send_email_notification(data_dict)
 
-    st.success("✅ Submitted with file upload!")
+    st.success("✅ MERF submitted successfully!")
