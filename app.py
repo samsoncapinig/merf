@@ -7,6 +7,45 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 import io
+import smtplib
+from email.mime.text import MIMEText
+
+def send_email_notification(data):
+    sender = st.secrets["EMAIL_USER"]
+    password = st.secrets["EMAIL_PASS"]
+
+    # ✅ multiple recipients
+    recipients = st.secrets["EMAIL_TO"].split(",")
+
+    subject = "New MERF Submission"
+
+    body = f"""
+New MERF Submission Received:
+
+Program Owner: {data['Program Owner']}
+Training Title: {data['Training Title']}
+Venue: {data['Venue']}
+Dates: {data['Dates']}
+QAME: {data['QAME']}
+
+Participants:
+Teaching: {data['Teaching']}
+Non-Teaching: {data['Non-Teaching']}
+Teaching Related: {data['Teaching Related']}
+
+Files:
+Signed Memorandum: {data['Memo Link']}
+Activity Matrix: {data['Matrix Link']}
+"""
+
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = sender
+    msg['To'] = ", ".join(recipients)
+
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+        server.login(sender, password)
+        server.send_message(msg)
 
 # 🔹 2. GOOGLE DRIVE FUNCTION (put it HERE ✅)
 
@@ -36,7 +75,7 @@ def upload_to_drive(file, filename):
 
     file_metadata = {
         'name': filename,
-        'parents': ['1gHafPfK31w9nQ3siyVW4BpbsCs7VVS_X']
+        'parents': ['1gHafPfK31w9nQ3siyVW4BpbsCs7VVS_X']  # ✅ fixed
     }
 
     file_stream = io.BytesIO(file.getbuffer())
@@ -49,59 +88,41 @@ def upload_to_drive(file, filename):
         fields='id'
     ).execute()
 
-    return uploaded.get('id')
+    file_id = uploaded.get('id')
+
+    # ✅ create link
+    file_link = f"https://drive.google.com/file/d/{file_id}/view"
+
+    return file_link
     
-
-st.title("MERF - Monitoring and Evaluation Request Form")
-
-program_owner = st.text_input("Program Owner")
-training_title = st.text_input("Training Title")
-venue = st.text_input("Venue")
-
-dates = st.date_input("Inclusive Dates", [])
-
-qame_list = [
-    "Rose Ann B. Oliva",
-    "John Vergel B. Catalina",
-    "Amrone Abegaile Mae B. Borromeo",
-    "Zaida C. Mendoza",
-    "Glady Judd D. Perez",
-    "Genelyn Cristobal",
-    "John Berben A. Alcala",
-    "Mary Ann C. Andales",
-    "Arjie A. Señano",
-    "Vergil Angelo B. Catalina",
-    "Others"
-]
-
-qame_selected = st.selectbox("Internal QAME Associate Assigned", qame_list)
-
-if qame_selected == "Others":
-    qame_other = st.text_input("Specify Name")
-else:
-    qame_other = qame_selected
-
-memo_file = st.file_uploader("Upload Signed Memorandum", type=["pdf", "docx"])
-matrix_file = st.file_uploader("Upload Activity Matrix", type=["pdf", "docx", "xlsx"])
-
-st.subheader("Number of Participants")
-teaching = st.number_input("Teaching", min_value=0)
-non_teaching = st.number_input("Non-Teaching", min_value=0)
-teaching_related = st.number_input("Teaching Related", min_value=0)
-
+# 🔹 4. SUBMIT BUTTON (below it ✅)
 if st.button("Submit MERF"):
 
-    memo_id = ""
-    matrix_id = ""
+    memo_link = ""
+    matrix_link = ""
 
     if memo_file:
-        memo_id = upload_to_drive(memo_file, memo_file.name)
+        memo_link = upload_to_drive(memo_file, memo_file.name)
 
     if matrix_file:
-        matrix_id = upload_to_drive(matrix_file, matrix_file.name)
+        matrix_link = upload_to_drive(matrix_file, matrix_file.name)
 
-    # Prepare data row
-    row = [
+    # ✅ Data dictionary for email
+    data_dict = {
+        "Program Owner": program_owner,
+        "Training Title": training_title,
+        "Venue": venue,
+        "Dates": str(dates),
+        "QAME": qame_other,
+        "Teaching": teaching,
+        "Non-Teaching": non_teaching,
+        "Teaching Related": teaching_related,
+        "Memo Link": memo_link,
+        "Matrix Link": matrix_link
+    }
+
+    # ✅ Save to Google Sheet (with links)
+    save_to_google_sheet([
         str(datetime.now()),
         program_owner,
         training_title,
@@ -111,11 +132,11 @@ if st.button("Submit MERF"):
         teaching,
         non_teaching,
         teaching_related,
-        memo_id,
-        matrix_id
-    ]
+        memo_link,
+        matrix_link
+    ])
 
-    # Save to Google Sheet
-    save_to_google_sheet(row)
+    # ✅ Send email
+    send_email_notification(data_dict)
 
-    st.success("✅ MERF submitted, uploaded, and recorded in Google Sheet!")
+    st.success("✅ MERF submitted, uploaded, recorded, and emailed!")
