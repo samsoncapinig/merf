@@ -39,7 +39,7 @@ def upload_to_drive(file, filename):
 
         file_metadata = {
             'name': filename,
-            'parents': ['1gHafPfK31w9nQ3siyVW4BpbsCs7VVS_X']
+            'parents': ['11mUXkWqeGRWShnL8vbVqftx9C9rcodl6']
         }
 
         file_stream = io.BytesIO(file.getbuffer())
