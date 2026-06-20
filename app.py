@@ -1,13 +1,46 @@
-
+# 🔹 1. IMPORTS (top of file)
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import os
+
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 import io
 
+# 🔹 2. GOOGLE DRIVE FUNCTION (put it HERE ✅)
+
+def get_drive_service():
+    SCOPES = ['https://www.googleapis.com/auth/drive']
+
+    creds = service_account.Credentials.from_service_account_file(
+        'service_account.json', scopes=SCOPES)
+
+    service = build('drive', 'v3', credentials=creds)
+    return service
+    
+# 🔹 3. UPLOAD FUNCTION (below it ✅)
+
+def upload_to_drive(file, filename):
+    service = get_drive_service()
+
+    file_metadata = {
+        'name': filename,
+        'parents': ['YOUR_FOLDER_ID']
+    }
+
+    file_stream = io.BytesIO(file.getbuffer())
+
+    media = MediaIoBaseUpload(file_stream, mimetype=file.type)
+
+    uploaded = service.files().create(
+        body=file_metadata,
+        media_body=media,
+        fields='id'
+    ).execute()
+
+    return uploaded.get('id')
+    
 
 st.title("MERF - Monitoring and Evaluation Request Form")
 
