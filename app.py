@@ -26,7 +26,7 @@ def upload_to_drive(file, filename):
 
     file_metadata = {
         'name': filename,
-        'parents': ['YOUR_FOLDER_ID']
+        'parents': ['1gHafPfK31w9nQ3siyVW4BpbsCs7VVS_X?fbclid=IwY2xjawRZCWFleHRuA2FlbQMxMDAAc3J0YwZhcHBfaWQBMAABHo7zyITbqfVjzwEnjGp9Z3RTyk8I52rKMWaXp_i7SxcIxDT_FG0DuJSA67M8_aem_HCMy1GEuAYyziXthnGsSCg']
     }
 
     file_stream = io.BytesIO(file.getbuffer())
@@ -81,51 +81,10 @@ teaching_related = st.number_input("Teaching Related", min_value=0)
 
 if st.button("Submit MERF"):
 
-    # ✅ Your OneDrive folder path here
-    upload_path = "/Users/macbookair/Library/CloudStorage/OneDrive-DEPARTMENTOFEDUCATION/MERF\ Uploads"
-    os.makedirs(upload_path, exist_ok=True)
-
-    memo_path = ""
-    matrix_path = ""
-
-    # Save Signed Memorandum
     if memo_file:
-        memo_path = os.path.join(upload_path, memo_file.name)
-        with open(memo_path, "wb") as f:
-            f.write(memo_file.getbuffer())
-
-    # Save Activity Matrix
-    if matrix_file:
-        matrix_path = os.path.join(upload_path, matrix_file.name)
-        with open(matrix_path, "wb") as f:
-            f.write(matrix_file.getbuffer())
-        with open(memo_path, "wb") as f:
-            f.write(memo_file.getbuffer())
+        upload_to_drive(memo_file, memo_file.name)
 
     if matrix_file:
-        matrix_path = f"uploads/{matrix_file.name}"
-        with open(matrix_path, "wb") as f:
-            f.write(matrix_file.getbuffer())
+        upload_to_drive(matrix_file, matrix_file.name)
 
-    data = {
-        "Program Owner": program_owner,
-        "Training Title": training_title,
-        "Venue": venue,
-        "Dates": str(dates),
-        "QAME": qame_other,
-        "Memo File": memo_path,
-        "Activity Matrix": matrix_path,
-        "Teaching": teaching,
-        "Non-Teaching": non_teaching,
-        "Teaching Related": teaching_related,
-        "Timestamp": datetime.now()
-    }
-
-    df = pd.DataFrame([data])
-
-    if os.path.exists("merf_data.csv"):
-        df.to_csv("merf_data.csv", mode='a', header=False, index=False)
-    else:
-        df.to_csv("merf_data.csv", index=False)
-
-    st.success("MERF submitted successfully!")
+    st.success("MERF submitted and uploaded to Google Drive ✅")
