@@ -49,7 +49,8 @@ def upload_to_drive(file, filename):
         uploaded = service.files().create(
             body=file_metadata,
             media_body=media,
-            fields='id'
+            fields='id',
+            supportsAllDrives=True  # ✅ FIX
         ).execute()
 
         file_id = uploaded.get('id')
