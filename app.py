@@ -5,6 +5,9 @@ import gspread
 from google.oauth2 import service_account
 import smtplib
 from email.mime.text import MIMEText
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+import io
 
 # 🔹 GOOGLE SHEETS
 def save_to_google_sheet(data):
@@ -17,6 +20,38 @@ def save_to_google_sheet(data):
     sheet = client.open_by_key("1EZGjn7SX1MhFls_RV4LRt0lhHa1tvOdvK7w2LqUUVLE").sheet1
     sheet.append_row(data)
 
+# 🔹 GOOGLE DRIVE
+
+def upload_to_gdrive(file, filename):
+    SCOPES = ['https://www.googleapis.com/auth/drive']
+
+    creds = service_account.Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"], scopes=SCOPES)
+
+    service = build('drive', 'v3', credentials=creds)
+
+    # Convert Streamlit file → bytes
+    file_stream = io.BytesIO(file.getvalue())
+
+    media = MediaIoBaseUpload(
+        file_stream,
+        mimetype=file.type,
+        resumable=True
+    )
+
+    file_metadata = {
+        'name': f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}",
+        # Optional: set folder ID if you want organization
+        # 'parents': ['11mUXkWqeGRWShnL8vbVqftx9C9rcodl6']
+    }
+
+    uploaded_file = service.files().create(
+        body=file_metadata,
+        media_body=media,
+        fields='id, webViewLink'
+    ).execute()
+
+    return uploaded_file.get("webViewLink")
 # 🔹 EMAIL FUNCTION
 def send_email_notification(data):
     sender = st.secrets["EMAIL_USER"]
@@ -75,33 +110,40 @@ def get_access_token():
 
 # 🔹 GOOGLE DRIVE UPLOAD
 
-def upload_to_onedrive(file, filename):
-    access_token = get_access_token()
+def upload_to_gdrive(file, filename):
+    SCOPES = ['https://www.googleapis.com/auth/drive']
 
-    if not access_token:
-        return None
+    creds = service_account.Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"], scopes=SCOPES)
 
-    USER_ID = st.secrets["MS_USER_ID"]
+    service = build('drive', 'v3', credentials=creds)
 
-    upload_url = f"https://graph.microsoft.com/v1.0/users/{USER_ID}/drive/root:/MERF/{filename}:/content"
+    file_stream = io.BytesIO(file.getvalue())
 
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
-
-    response = requests.put(
-        upload_url,
-        headers=headers,
-        data=file.getvalue()
+    media = MediaIoBaseUpload(
+        file_stream,
+        mimetype=file.type,
+        resumable=True
     )
 
-    if response.status_code in [200, 201]:
-        file_data = response.json()
-        return file_data.get("webUrl")
-    else:
-        st.error(f"❌ Upload failed: {response.text}")
-        return None
-        
+    file_metadata = {
+        'name': f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}"
+    }
+
+    uploaded_file = service.files().create(
+        body=file_metadata,
+        media_body=media,
+        fields='id, webViewLink'
+    ).execute()
+
+    # ✅ Make public
+    service.permissions().create(
+        fileId=uploaded_file['id'],
+        body={'role': 'reader', 'type': 'anyone'}
+    ).execute()
+
+    return uploaded_file.get("webViewLink")
+
 # 🔹 UI FORM
 st.title("MERF - Monitoring and Evaluation Request Form")
 
@@ -150,10 +192,10 @@ if st.button("Submit MERF"):
     matrix_link = "No file"
 
     if memo_file:
-        memo_link = upload_to_onedrive(memo_file, memo_file.name)
+        memo_link = upload_to_gdrive(memo_file, memo_file.name)
 
     if matrix_file:
-        matrix_link = upload_to_onedrive(matrix_file, matrix_file.name)
+        matrix_link = upload_to_gdrive(matrix_file, matrix_file.name)
 
     formatted_dates = ", ".join([d.strftime("%Y-%m-%d") for d in dates]) if isinstance(dates, list) else str(dates)
 
