@@ -51,6 +51,48 @@ Matrix: {data['Matrix File']}
         server.login(sender, password)
         server.send_message(msg)
 
+import requests
+import msal
+
+def get_access_token():
+    authority = f"https://login.microsoftonline.com/{st.secrets['MS_TENANT_ID']}"
+    
+    app = msal.ConfidentialClientApplication(
+        st.secrets["MS_CLIENT_ID"],
+        authority=authority,
+        client_credential=st.secrets["MS_CLIENT_SECRET"],
+    )
+
+    token = app.acquire_token_for_client(
+        scopes=["https://graph.microsoft.com/.default"]
+    )
+
+    return token.get("access_token")
+
+# 🔹 GOOGLE DRIVE UPLOAD
+
+def upload_to_onedrive(file, filename):
+    access_token = get_access_token()
+
+    upload_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{filename}:/content"
+
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+
+    response = requests.put(
+        upload_url,
+        headers=headers,
+        data=file.getvalue()  # Streamlit file
+    )
+
+    if response.status_code in [200, 201]:
+        file_data = response.json()
+        return file_data.get("webUrl")  # ✅ sharable link
+    else:
+        st.error("❌ Upload failed")
+        return None
+        
 # 🔹 UI FORM
 st.title("MERF - Monitoring and Evaluation Request Form")
 
@@ -95,8 +137,14 @@ if st.button("Submit MERF"):
         st.error("❌ Please fill required fields")
         st.stop()
 
-    memo_name = memo_file.name if memo_file else "No file"
-    matrix_name = matrix_file.name if matrix_file else "No file"
+    memo_link = "No file"
+    matrix_link = "No file"
+
+    if memo_file:
+        memo_link = upload_to_onedrive(memo_file, memo_file.name)
+
+    if matrix_file:
+        matrix_link = upload_to_onedrive(matrix_file, matrix_file.name)
 
     formatted_dates = ", ".join([d.strftime("%Y-%m-%d") for d in dates]) if isinstance(dates, list) else str(dates)
 
@@ -109,8 +157,8 @@ if st.button("Submit MERF"):
         "Teaching": teaching,
         "Non-Teaching": non_teaching,
         "Teaching Related": teaching_related,
-        "Memo File": memo_name,
-        "Matrix File": matrix_name
+        "Memo File": memo_link,
+        "Matrix File": matrix_link
     }
 
     # ✅ Save to sheet
@@ -124,8 +172,8 @@ if st.button("Submit MERF"):
         teaching,
         non_teaching,
         teaching_related,
-        memo_name,
-        matrix_name
+        matrix_link,
+        matrix_link
     ])
 
     # ✅ Send email
