@@ -182,7 +182,7 @@ with col_text:
     st.markdown(
         f"""
         **Developed by Sir Sam**   
-        Project DESA • SDO Masbate City  
+        Project MERF • SDO Masbate City  
         © {datetime.now().year} . All rights reserved.
         """
     )
