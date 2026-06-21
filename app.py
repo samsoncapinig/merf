@@ -24,41 +24,48 @@ def save_to_google_sheet(data):
 # 🔹 GOOGLE DRIVE UPLOAD
 
 def upload_to_gdrive(file, filename):
-    SCOPES = ['https://www.googleapis.com/auth/drive']
+    try:
+        SCOPES = ['https://www.googleapis.com/auth/drive']
 
-    creds = service_account.Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"], scopes=SCOPES)
+        creds = service_account.Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"], scopes=SCOPES)
 
-    service = build('drive', 'v3', credentials=creds)
+        service = build('drive', 'v3', credentials=creds)
 
-    file_stream = io.BytesIO(file.getvalue())
+        file_stream = io.BytesIO(file.getvalue())
 
-    media = MediaIoBaseUpload(
-        file_stream,
-        mimetype=file.type,
-        resumable=True
-    )
+        media = MediaIoBaseUpload(
+            file_stream,
+            mimetype=file.type,
+            resumable=False   # ✅ IMPORTANT: disable chunking for Streamlit
+        )
 
-    file_metadata = {
-        'name': f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}"
-    }
+        file_metadata = {
+            'name': f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}",
+            'parents': ['11mUXkWqeGRWShnL8vbVqftx9C9rcodl6']
+        }
 
-    uploaded_file = service.files().create(
-        body=file_metadata,
-        media_body=media,
-        fields='id, webViewLink'
-    ).execute()
+        uploaded_file = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields='id, webViewLink'
+        ).execute()
 
-    # ✅ Make public
-    service.permissions().create(
-        fileId=uploaded_file['id'],
-        body={'role': 'reader', 'type': 'anyone'}
-    ).execute()
+        # ✅ Make file public
+        service.permissions().create(
+            fileId=uploaded_file['id'],
+            body={'role': 'reader', 'type': 'anyone'}
+        ).execute()
 
-    return uploaded_file.get("webViewLink")
+        return uploaded_file.get("webViewLink")
 
-    with st.spinner("Uploading files..."):
-        memo_link = upload_to_gdrive(memo_file, memo_file.name)
+    except HttpError as error:
+        st.error(f"❌ Google Drive API error:\n{error}")
+        return None
+
+    except Exception as e:
+        st.error(f"❌ Unexpected error:\n{str(e)}")
+        return None
     
 # 🔹 EMAIL FUNCTION
 def send_email_notification(data):
