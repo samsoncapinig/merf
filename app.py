@@ -126,9 +126,10 @@ if st.button("Submit MERF"):
     memo_name = memo_file.name if memo_file else "No file"
     matrix_name = matrix_file.name if matrix_file else "No file"
 
-    formatted_dates = ", ".join(
-        [d.strftime("%Y-%m-%d") for d in dates]
-    ) if isinstance(dates, list) else str(dates)
+    if isinstance(dates, (list, tuple)) and len(dates) == 2:
+    formatted_dates = f"{dates[0].strftime('%B %d, %Y')} to {dates[1].strftime('%B %d, %Y')}"
+    else:
+    formatted_dates = str(dates)
 
     data_dict = {
         "Program Owner": program_owner,
