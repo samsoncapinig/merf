@@ -78,6 +78,7 @@ Teaching Related: {data['Teaching Related']}
 
 
 # 🔹 UI FORM
+st.image("logo.gif", width=1400)
 st.title("MERF - Monitoring and Evaluation Request Form")
 
 program_owner = st.text_input("Program Owner")
