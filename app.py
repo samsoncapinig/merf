@@ -5,73 +5,33 @@ import gspread
 from google.oauth2 import service_account
 import smtplib
 from email.mime.text import MIMEText
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-import io
-from googleapiclient.errors import HttpError
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 
 # 🔹 GOOGLE SHEETS
 def save_to_google_sheet(data):
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
     creds = service_account.Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"], scopes=SCOPES)
+        st.secrets["gcp_service_account"], scopes=SCOPES
+    )
 
     client = gspread.authorize(creds)
     sheet = client.open_by_key("1EZGjn7SX1MhFls_RV4LRt0lhHa1tvOdvK7w2LqUUVLE").sheet1
     sheet.append_row(data)
 
-# 🔹 GOOGLE DRIVE UPLOAD
 
-def upload_to_gdrive(file, filename):
-    try:
-        SCOPES = ['https://www.googleapis.com/auth/drive']
-
-        creds = service_account.Credentials.from_service_account_info(
-            st.secrets["gcp_service_account"], scopes=SCOPES)
-
-        service = build('drive', 'v3', credentials=creds)
-
-        file_stream = io.BytesIO(file.getvalue())
-
-        media = MediaIoBaseUpload(
-            file_stream,
-            mimetype=file.type,
-            resumable=False   # ✅ IMPORTANT: disable chunking for Streamlit
-        )
-
-        file_metadata = {
-            'name': f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}",
-            'parents': ['1lNmOwGPruVGcAUwPWV75']
-        }
-
-        uploaded_file = service.files().create(
-            body=file_metadata,
-            media_body=media,
-            fields='id, webViewLink'
-        ).execute()
-
-        # ✅ Make file public
-        service.permissions().create(
-            fileId=uploaded_file['id'],
-            body={'role': 'reader', 'type': 'anyone'}
-        ).execute()
-
-        return uploaded_file.get("webViewLink")
-
-    except HttpError as error:
-        st.error(f"❌ Google Drive API error:\n{error}")
-        return None
-
-    except Exception as e:
-        st.error(f"❌ Unexpected error:\n{str(e)}")
-        return None
-    
-# 🔹 EMAIL FUNCTION
-def send_email_notification(data):
+# 🔹 EMAIL FUNCTION (WITH ATTACHMENTS ✅)
+def send_email_notification(data, memo_file=None, matrix_file=None):
     sender = st.secrets["EMAIL_USER"]
     password = st.secrets["EMAIL_PASS"]
     recipients = st.secrets["EMAIL_TO"].split(",")
+
+    msg = MIMEMultipart()
+    msg['Subject'] = "MERF Submission"
+    msg['From'] = sender
+    msg['To'] = ", ".join(recipients)
 
     body = f"""
 New MERF Submission:
@@ -86,42 +46,35 @@ Participants:
 Teaching: {data['Teaching']}
 Non-Teaching: {data['Non-Teaching']}
 Teaching Related: {data['Teaching Related']}
-
-Files:
-Memo: {data['Memo File']}
-Matrix: {data['Matrix File']}
 """
+    msg.attach(MIMEText(body, "plain"))
 
-    msg = MIMEText(body)
-    msg['Subject'] = "MERF Submission"
-    msg['From'] = sender
-    msg['To'] = ", ".join(recipients)
+    # ✅ Attach Memo File
+    if memo_file:
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload(memo_file.getvalue())
+        encoders.encode_base64(part)
+        part.add_header(
+            'Content-Disposition',
+            f'attachment; filename="{memo_file.name}"'
+        )
+        msg.attach(part)
 
+    # ✅ Attach Matrix File
+    if matrix_file:
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload(matrix_file.getvalue())
+        encoders.encode_base64(part)
+        part.add_header(
+            'Content-Disposition',
+            f'attachment; filename="{matrix_file.name}"'
+        )
+        msg.attach(part)
+
+    # ✅ Send Email
     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
         server.login(sender, password)
         server.send_message(msg)
-
-import requests
-import msal
-
-def get_access_token():
-    authority = f"https://login.microsoftonline.com/{st.secrets['MS_TENANT_ID']}"
-    
-    app = msal.ConfidentialClientApplication(
-        st.secrets["MS_CLIENT_ID"],
-        authority=authority,
-        client_credential=st.secrets["MS_CLIENT_SECRET"],
-    )
-
-    token = app.acquire_token_for_client(
-        scopes=["https://graph.microsoft.com/.default"]
-    )
-
-    if "access_token" in token:
-        return token["access_token"]
-    else:
-        st.error(f"❌ Token error: {token}")
-        return None
 
 
 # 🔹 UI FORM
@@ -161,6 +114,7 @@ teaching = st.number_input("Teaching", min_value=0)
 non_teaching = st.number_input("Non-Teaching", min_value=0)
 teaching_related = st.number_input("Teaching Related", min_value=0)
 
+
 # 🔹 SUBMIT
 if st.button("Submit MERF"):
 
@@ -168,16 +122,13 @@ if st.button("Submit MERF"):
         st.error("❌ Please fill required fields")
         st.stop()
 
-    memo_link = "No file"
-    matrix_link = "No file"
+    # ✅ Just store file names (no upload anymore)
+    memo_name = memo_file.name if memo_file else "No file"
+    matrix_name = matrix_file.name if matrix_file else "No file"
 
-    if memo_file:
-        memo_link = upload_to_gdrive(memo_file, memo_file.name)
-
-    if matrix_file:
-        matrix_link = upload_to_gdrive(matrix_file, matrix_file.name)
-
-    formatted_dates = ", ".join([d.strftime("%Y-%m-%d") for d in dates]) if isinstance(dates, list) else str(dates)
+    formatted_dates = ", ".join(
+        [d.strftime("%Y-%m-%d") for d in dates]
+    ) if isinstance(dates, list) else str(dates)
 
     data_dict = {
         "Program Owner": program_owner,
@@ -188,8 +139,8 @@ if st.button("Submit MERF"):
         "Teaching": teaching,
         "Non-Teaching": non_teaching,
         "Teaching Related": teaching_related,
-        "Memo File": memo_link,
-        "Matrix File": matrix_link
+        "Memo File": memo_name,
+        "Matrix File": matrix_name
     }
 
     # ✅ Save to sheet
@@ -203,11 +154,11 @@ if st.button("Submit MERF"):
         teaching,
         non_teaching,
         teaching_related,
-        memo_link,
-        matrix_link
+        memo_name,
+        matrix_name
     ])
 
-    # ✅ Send email
-    send_email_notification(data_dict)
+    # ✅ Send email WITH attachments
+    send_email_notification(data_dict, memo_file, matrix_file)
 
     st.success("✅ MERF submitted successfully!")
