@@ -42,7 +42,7 @@ def upload_to_gdrive(file, filename):
 
         file_metadata = {
             'name': f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}",
-            'parents': ['11mUXkWqeGRWShnL8vbVqftx9C9rcodl6']
+            'parents': ['1lNmOwGPruVGcAUwPWV75']
         }
 
         uploaded_file = service.files().create(
