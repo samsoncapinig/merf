@@ -8,6 +8,7 @@ from email.mime.text import MIMEText
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 import io
+from googleapiclient.errors import HttpError
 
 # 🔹 GOOGLE SHEETS
 def save_to_google_sheet(data):
@@ -20,7 +21,7 @@ def save_to_google_sheet(data):
     sheet = client.open_by_key("1EZGjn7SX1MhFls_RV4LRt0lhHa1tvOdvK7w2LqUUVLE").sheet1
     sheet.append_row(data)
 
-# 🔹 GOOGLE DRIVE
+# 🔹 GOOGLE DRIVE UPLOAD
 
 def upload_to_gdrive(file, filename):
     SCOPES = ['https://www.googleapis.com/auth/drive']
@@ -30,7 +31,6 @@ def upload_to_gdrive(file, filename):
 
     service = build('drive', 'v3', credentials=creds)
 
-    # Convert Streamlit file → bytes
     file_stream = io.BytesIO(file.getvalue())
 
     media = MediaIoBaseUpload(
@@ -40,9 +40,7 @@ def upload_to_gdrive(file, filename):
     )
 
     file_metadata = {
-        'name': f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}",
-        # Optional: set folder ID if you want organization
-        # 'parents': ['11mUXkWqeGRWShnL8vbVqftx9C9rcodl6']
+        'name': f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}"
     }
 
     uploaded_file = service.files().create(
@@ -51,7 +49,17 @@ def upload_to_gdrive(file, filename):
         fields='id, webViewLink'
     ).execute()
 
+    # ✅ Make public
+    service.permissions().create(
+        fileId=uploaded_file['id'],
+        body={'role': 'reader', 'type': 'anyone'}
+    ).execute()
+
     return uploaded_file.get("webViewLink")
+
+    with st.spinner("Uploading files..."):
+        memo_link = upload_to_gdrive(memo_file, memo_file.name)
+    
 # 🔹 EMAIL FUNCTION
 def send_email_notification(data):
     sender = st.secrets["EMAIL_USER"]
@@ -108,41 +116,6 @@ def get_access_token():
         st.error(f"❌ Token error: {token}")
         return None
 
-# 🔹 GOOGLE DRIVE UPLOAD
-
-def upload_to_gdrive(file, filename):
-    SCOPES = ['https://www.googleapis.com/auth/drive']
-
-    creds = service_account.Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"], scopes=SCOPES)
-
-    service = build('drive', 'v3', credentials=creds)
-
-    file_stream = io.BytesIO(file.getvalue())
-
-    media = MediaIoBaseUpload(
-        file_stream,
-        mimetype=file.type,
-        resumable=True
-    )
-
-    file_metadata = {
-        'name': f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}"
-    }
-
-    uploaded_file = service.files().create(
-        body=file_metadata,
-        media_body=media,
-        fields='id, webViewLink'
-    ).execute()
-
-    # ✅ Make public
-    service.permissions().create(
-        fileId=uploaded_file['id'],
-        body={'role': 'reader', 'type': 'anyone'}
-    ).execute()
-
-    return uploaded_file.get("webViewLink")
 
 # 🔹 UI FORM
 st.title("MERF - Monitoring and Evaluation Request Form")
