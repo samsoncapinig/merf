@@ -67,14 +67,23 @@ def get_access_token():
         scopes=["https://graph.microsoft.com/.default"]
     )
 
-    return token.get("access_token")
+    if "access_token" in token:
+        return token["access_token"]
+    else:
+        st.error(f"❌ Token error: {token}")
+        return None
 
 # 🔹 GOOGLE DRIVE UPLOAD
 
 def upload_to_onedrive(file, filename):
     access_token = get_access_token()
 
-    upload_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{filename}:/content"
+    if not access_token:
+        return None
+
+    USER_ID = st.secrets["MS_USER_ID"]
+
+    upload_url = f"https://graph.microsoft.com/v1.0/users/{USER_ID}/drive/root:/MERF/{filename}:/content"
 
     headers = {
         "Authorization": f"Bearer {access_token}"
@@ -83,14 +92,14 @@ def upload_to_onedrive(file, filename):
     response = requests.put(
         upload_url,
         headers=headers,
-        data=file.getvalue()  # Streamlit file
+        data=file.getvalue()
     )
 
     if response.status_code in [200, 201]:
         file_data = response.json()
-        return file_data.get("webUrl")  # ✅ sharable link
+        return file_data.get("webUrl")
     else:
-        st.error("❌ Upload failed")
+        st.error(f"❌ Upload failed: {response.text}")
         return None
         
 # 🔹 UI FORM
@@ -172,7 +181,7 @@ if st.button("Submit MERF"):
         teaching,
         non_teaching,
         teaching_related,
-        matrix_link,
+        memo_link,
         matrix_link
     ])
 
